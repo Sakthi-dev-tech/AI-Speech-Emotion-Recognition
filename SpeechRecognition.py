@@ -3,7 +3,8 @@ import soundfile
 import os, glob, pickle
 import numpy as np
 from sklearn.model_selection import train_test_split
-
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score
 """
 
 Filename identifiers
@@ -36,6 +37,8 @@ emotions={
   '08':'surprised'
 }
 
+observed_emotions = ['calm', 'happy', 'fearful', 'disgust']
+
 def extract_feature(file_name, mfcc, chroma, mel):
     """
     Extracts features from the audio file.
@@ -51,9 +54,10 @@ def extract_feature(file_name, mfcc, chroma, mel):
     with soundfile.SoundFile(file_name) as sound_file:
         X = sound_file.read(dtype="float32")
         sample_rate = sound_file.samplerate
+        result = np.array([])
+        
         if chroma:
             stft = np.abs(librosa.stft(X))
-        result = np.array([])
         if mfcc:
             mfccs = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=13).T, axis=0)
             result = np.hstack((result, mfccs))
@@ -74,10 +78,12 @@ def load_data(test_size=0.2):
     :return: Tuple of features and labels
     """
     x, y = [], []
-    for file in glob.glob("C:\\Users\\Sakthi\\Documents\\GitHub\AI-Speech-Emotion-Recognition\\speech_samples\\Actor_*\\*.wav"):
+    for file in glob.glob(".\\speech_samples\\Actor_*\\*.wav"):
         # Extracting features from the audio file
         file_name = os.path.basename(file)
         emotion = emotions[file_name.split("-")[2]]
+        if emotion not in observed_emotions:
+            continue
 
         feature = extract_feature(file, mfcc=True, chroma=True, mel=True)
         x.append(feature)
@@ -88,3 +94,10 @@ def load_data(test_size=0.2):
 
 x_train,x_test,y_train,y_test=load_data(test_size=0.25)
 print((x_train.shape[0], x_test.shape[0]))
+print(f'Features extracted: {x_train.shape[1]}')
+
+model = MLPClassifier(alpha=0.01, batch_size=256, epsilon=1e-08, hidden_layer_sizes=(300,), learning_rate='adaptive', max_iter=750)
+model.fit(x_train, y_train)
+y_pred = model.predict(x_test)
+accuracy = accuracy_score(y_test, y_pred)
+print("Accuracy: {:.2f}%".format(accuracy*100))
